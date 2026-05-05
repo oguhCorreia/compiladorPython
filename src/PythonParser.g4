@@ -1,14 +1,21 @@
-parser grammar PythonParser; // Indica que é apenas sintático
+parser grammar PythonParser;
 
-options { tokenVocab=PythonLexer; } // O SEGREDO ESTÁ AQUI!
+options { tokenVocab = PythonLexer; }
 
-// Regras de Parser (Sempre em minúsculas)
-program : estatuto+ EOF ;
+// Regra inicial
+program : stat+ ;
 
-estatuto : ID '=' expr
-         | PRINT '(' expr ')'
-         ;
+// Regras de comandos (podes expandir depois)
+stat : expr                      # printExpr
+     | ID ASSIGN expr            # assignment
+     | PRINT LPAREN expr RPAREN  # printFunc
+     ;
 
-expr : INT 
-     | ID
+// Regras de expressões
+expr : expr (STAR|DIV) expr      # MulDiv
+     | expr (PLUS|MINUS) expr    # AddSub
+     | INT                       # int
+     | ID                        # id
+     | STRING                    # string
+     | LPAREN expr RPAREN        # parens
      ;
