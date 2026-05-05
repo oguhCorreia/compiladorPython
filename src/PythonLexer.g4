@@ -41,7 +41,7 @@ PASS     : 'pass' ;
 
 PLUS     : '+' ;
 MINUS    : '-' ;
-STAR     : '*' ;
+MULT     : '*' ;
 DIV      : '/' ;
 IDIV     : '//' ;
 MOD      : '%' ;
@@ -76,3 +76,4 @@ STRING : '"' ( ~('\\'|'"') | '\\' . )* '"'
 INT      : [0-9]+ ;
 FLOAT    : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
 WS       : [ \t\r\n]+ -> skip ;
+NEWLINE   : [\r\n]+ ;
