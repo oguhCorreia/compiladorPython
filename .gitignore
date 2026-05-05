@@ -1,0 +1,10 @@
+*.class
+bin/
+
+src/*.java
+!src/App.java  # Se ainda usasses o App.java, isto manteria-o
+*.tokens
+*.interp
+.antlr/
+
+.vscode/
