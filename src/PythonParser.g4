@@ -4,10 +4,11 @@ options { tokenVocab = PythonLexer; }
 
 program : stat+ ;
 
-code: stat* EOF ;
+code: stat* EOF;
 
 stat : expr
-     | expr NEWLINE      
+     | expr NEWLINE   
+     | LPAREN expr | query RPAREN NEWLINE
      | ID ASSIGN expr
      | PRINT LPAREN expr RPAREN
      ;
@@ -27,3 +28,12 @@ expr : ID
      ;
 
 func: ID LPAREN (expr (COMMA expr)*)? RPAREN ;
+
+query: TRUE
+     | FALSE
+     | LPAREN query RPAREN
+     | query (MULT|DIV) query
+     | query (PLUS|MINUS) query
+     | query (AND|OR) query
+     | query (EQ|NE|GT|LT|GE|LE) query
+     ;
