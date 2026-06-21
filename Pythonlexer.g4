@@ -71,6 +71,6 @@ STRING : '"' (~["\r\n])* '"' | '\'' (~['\r\n])* '\'' ;
 
 // REGRAS DE ESPAÇAMENTO E FORMATAÇÃO
 NEWLINE : '\r'? '\n' ;
-INDENT : ('\t')+;
+INDENT : ('\t' | '    ')+;
 SPACES  : [ ]+ -> skip ;
 COMMENT : '#' ~[\r\n]* -> skip ;

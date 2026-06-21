@@ -1,6 +1,6 @@
 verdade = True
 if verdade:
-	print("A")
+    print("A")
 	if verdade:
 		print("B")
 else:
