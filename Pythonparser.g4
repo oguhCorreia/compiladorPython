@@ -21,17 +21,17 @@ stat : assignment
      | loop_for ;
 
 // A estrutura de blocos de código por indentação
-block : NEWLINE (INDENT stat NEWLINE?)+ ;
+block : NEWLINE+ (INDENT stat NEWLINE*)+ ;
 
 // REGRAS OPERADORES
-op_assignment : ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | MULT_ASSIGN | DIV_ASSIGN | MOD_ASSIGN;
+op_assignment : ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN | MULT_ASSIGN | DIV_ASSIGN | MOD_ASSIGN | FLOOR_DIV_ASSIGN;
 op_mult : MULT | DIV | MOD | FLOOR_DIV;
 op_add : PLUS | MINUS;
 op_comp : EQ | NEQ | LT | GT | LTE | GTE;
 
 // INSTRUÇÕES SIMPLES
 assignment    : ID op_assignment expr;
-print_stmt    : PRINT LPAREN (expr (COMMA expr)*)? RPAREN ;
+print_stmt : PRINT LPAREN ((expr | query) (COMMA (expr | query))*)? RPAREN ;
 input_stmt    : ID ASSIGN INPUT LPAREN STRING? RPAREN ;
 return_stmt   : RETURN expr? ;
 break_stmt    : BREAK ;
@@ -40,22 +40,21 @@ pass_stmt     : PASS ;
 import_stmt   : IMPORT ID (AS ID)? | FROM ID IMPORT ID (AS ID)? ;
 
 // ESTRUTURAS COMPLEXAS (Com blocos)
-func        : DEF ID LPAREN (ID (COMMA ID)*)? RPAREN COLON block ;
+func : DEF ID LPAREN (param (COMMA param)*)? RPAREN (ARROW expr)? COLON block ;
 class_def   : CLASS ID COLON block ;
 try_except  : TRY COLON block (EXCEPT ID? COLON block)* (FINALLY COLON block)? ;
-condicional : IF expr COLON block (ELIF expr COLON block)* (ELSE COLON block)? ;
-loop_while  : WHILE expr COLON block ;
+condicional : IF query COLON block (ELIF query COLON block)* (ELSE COLON block)? ;
+loop_while  : WHILE query COLON block ;
 loop_for    : FOR ID IN expr COLON block ;
 
 // CHAMADA DE FUNÇÃO
 func_call : ID LPAREN (expr (COMMA expr)*)? RPAREN ;
 
-// EXPRESSÕES E CONDIÇÕES UNIFICADAS (Com ordem de precedência correta)
 expr : LPAREN expr RPAREN
      | func_call
      | lista
-     | tupla
      | dicionario
+     | tupla
      | conjunto
      | ID
      | INT
@@ -66,14 +65,23 @@ expr : LPAREN expr RPAREN
      | expr POW expr
      | expr op_mult expr
      | expr op_add expr
-     | expr op_comp expr
-     | NOT expr
-     | expr AND expr
-     | expr OR expr
      ;
+
+query : TRUE
+      | FALSE
+      | expr op_comp expr
+      | NOT query
+      | query AND query
+      | query OR query
+      | LPAREN query RPAREN
+      ;
+
+
+param : ID (COLON expr)? ;
+
 
 // COLEÇÕES
 lista     : LBRACK (expr (COMMA expr)*)? RBRACK ;
-tupla     : LPAREN (expr (COMMA expr)*)? RPAREN ;
+tupla : LPAREN expr COMMA (expr (COMMA expr)*)? RPAREN;
 dicionario: LBRACE (expr COLON expr (COMMA expr COLON expr)*)? RBRACE ;
-conjunto  : LBRACE (expr (COMMA expr)*)? RBRACE ;
+conjunto : LBRACE expr (COMMA expr)* RBRACE ;

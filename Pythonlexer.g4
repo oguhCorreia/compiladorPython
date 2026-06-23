@@ -34,6 +34,7 @@ PLUS_ASSIGN  : '+=' ;
 MINUS_ASSIGN : '-=' ;
 MULT_ASSIGN  : '*=' ;
 DIV_ASSIGN   : '/=' ;
+FLOOR_DIV_ASSIGN : '//=' ;
 MOD_ASSIGN   : '%=' ;
 
 // ARITMÉTICOS
@@ -69,7 +70,10 @@ FLOAT  : [0-9]+ '.' [0-9]+ ;
 INT    : [0-9]+ ;
 STRING : '"' (~["\r\n])* '"' | '\'' (~['\r\n])* '\'' ;
 
+ARROW      : '->' ;
+
 // REGRAS DE ESPAÇAMENTO E FORMATAÇÃO
+EMPTY_LINE : ('\t' | ' ')+ '\r'? '\n' -> skip ;
 NEWLINE : '\r'? '\n' ;
 INDENT : ('\t' | '    ')+;
 SPACES  : [ ]+ -> skip ;

@@ -52,13 +52,21 @@ class Compiler(PythonParserVisitor):
         elif op == '*=': self.vars[name] = self.vars.get(name, 0) * right
         elif op == '/=': self.vars[name] = self.vars.get(name, 0) / right
         elif op == '%=': self.vars[name] = self.vars.get(name, 0) % right
+        elif op == '//=': self.vars[name] = self.vars.get(name, 0) // right
 
         print(f"Atribuição: {name} {op} {right}")
         return self.vars[name]
 
-    def visitPrint_stmt(self, ctx:PythonParser.Print_stmtContext):
-        args = [str(self.visit(e)) for e in ctx.expr()]
-        resultado = ' '.join(args)
+    def visitPrint_stmt(self, ctx: PythonParser.Print_stmtContext):
+        results = []
+        for child in ctx.children:
+            rule = getattr(child, 'getRuleIndex', None)
+            if rule is None:
+                continue
+            rule_name = self._Parser.ruleNames[child.getRuleIndex()]
+            if rule_name in ('expr', 'query'):
+                results.append(str(self.visit(child)))
+        resultado = ' '.join(results)
         print(f"> [PRINT]: {resultado}")
         return None
 
@@ -75,12 +83,10 @@ class Compiler(PythonParserVisitor):
         print(f"[LOG - INPUT] Recebido: {value} (Tipo: {type(value).__name__})")
         return value
 
-    def visitFunc(self, ctx:PythonParser.FuncContext):
-        name = ctx.ID(0).getText()
-        
-        params = [p.getText() for p in ctx.ID()[1:]]
+    def visitFunc(self, ctx: PythonParser.FuncContext):
+        name = ctx.ID().getText()
+        params = [p.ID().getText() for p in ctx.param()]
         block = ctx.block()
-        
         self.funcs[name] = (params, block)
         return None
 
@@ -91,7 +97,7 @@ class Compiler(PythonParserVisitor):
 
     def visitFunc_call(self, ctx:PythonParser.Func_callContext):
         name = ctx.ID().getText()
-        
+
         if name in ['len', 'type', 'range']:
             args = [self.visit(arg) for arg in ctx.expr()]
             if name == 'len':
@@ -112,11 +118,11 @@ class Compiler(PythonParserVisitor):
         if len(args) != len(params):
             raise TypeError(f"Função '{name}' esperava {len(params)} argumentos, recebeu {len(args)}.")
 
-        old_vars = self.vars.copy()
+        # Guarda apenas os params que já existem no scope atual
+        saved_params = {p: self.vars[p] for p in params if p in self.vars}
 
         for param, arg in zip(params, args):
             self.vars[param] = arg
-  
             print(f"Atribuição (Parâmetro): {param} = {arg}")
 
         try:
@@ -124,27 +130,17 @@ class Compiler(PythonParserVisitor):
             return_value = None
         except ReturnException as e:
             return_value = e.value
-
-        for param in params:
-            if param in old_vars:
-                self.vars[param] = old_vars[param]
-            else:
-                self.vars.pop(param, None)
+        finally:
+            # Remove os params da função do scope
+            for p in params:
+                self.vars.pop(p, None)
+            # Restaura os que existiam antes com o valor original
+            self.vars.update(saved_params)
 
         return return_value
-        try:
-            for stat in func_data['body']:
-                self.visit(stat)
-        except ReturnException as e:
-            result = e.value
-            print(f"  -> [RETURN] A função retornou o valor: {result}")
-        finally:
-            self.vars = old_vars
-        
-        return result
 
     def visitLoop_while(self, ctx:PythonParser.Loop_whileContext):
-        while self.visit(ctx.expr()):
+        while self.visit(ctx.query()):
             self.visit(ctx.block())
         return None
 
@@ -162,21 +158,7 @@ class Compiler(PythonParserVisitor):
     def visitExpr(self, ctx:PythonParser.ExprContext):
         if ctx.TRUE(): return True
         if ctx.FALSE(): return False
-        if ctx.NOT(): return not self.visit(ctx.expr(0))
-        if ctx.AND(): return self.visit(ctx.expr(0)) and self.visit(ctx.expr(1))
-        if ctx.OR():  return self.visit(ctx.expr(0)) or self.visit(ctx.expr(1))
         
-        if ctx.op_comp():
-            op = ctx.op_comp().getText()
-            left = self.visit(ctx.expr(0))
-            right = self.visit(ctx.expr(1))
-            if op == '==': return left == right
-            if op == '!=': return left != right
-            if op == '<':  return left < right
-            if op == '>':  return left > right
-            if op == '<=': return left <= right
-            if op == '>=': return left >= right
-
         if ctx.ID():
             id_name = ctx.ID().getText()
             if id_name not in self.vars:
@@ -241,40 +223,39 @@ class Compiler(PythonParserVisitor):
         elementos = [self.visit(e) for e in ctx.expr()]
         return set(elementos)
 
-    def visitQuery(self, ctx:PythonParser.QueryContext):
+    def visitQuery(self, ctx: PythonParser.QueryContext):
         if ctx.TRUE(): return True
         if ctx.FALSE(): return False
-        
+
         if ctx.op_comp():
             op = ctx.op_comp().getText()
             left = self.visit(ctx.expr(0))
             right = self.visit(ctx.expr(1))
-            
             if op == '==': return left == right
             if op == '!=': return left != right
             if op == '<':  return left < right
             if op == '>':  return left > right
             if op == '<=': return left <= right
             if op == '>=': return left >= right
-            
+
         if ctx.NOT(): return not self.visit(ctx.query(0))
         if ctx.AND(): return self.visit(ctx.query(0)) and self.visit(ctx.query(1))
         if ctx.OR():  return self.visit(ctx.query(0)) or self.visit(ctx.query(1))
-        
+
         if ctx.LPAREN(): return self.visit(ctx.query(0))
 
-        return False
+        raise RuntimeError(f"Condição não reconhecida: '{ctx.getText()}'")
 
     def visitCondicional(self, ctx:PythonParser.CondicionalContext):
-        expressions = ctx.expr()
+        queries = ctx.query()
         blocks = ctx.block()
 
-        for i in range(len(expressions)):
-            if self.visit(expressions[i]):
+        for i in range(len(queries)):
+            if self.visit(queries[i]):
                 self.visit(blocks[i])
                 return None
 
-        if len(blocks) > len(expressions):
+        if len(blocks) > len(queries):
             self.visit(blocks[-1])
 
         return None
@@ -283,4 +264,21 @@ class Compiler(PythonParserVisitor):
         value = self.visit(ctx.expr()) if ctx.expr() else None
         raise ReturnException(value)
 
+    def visitTry_except(self, ctx: PythonParser.Try_exceptContext):
+        blocks = ctx.block()
+        try:
+            self.visit(blocks[0])
+        except Exception as e:
+            has_finally = ctx.FINALLY() is not None
+            except_blocks = blocks[1:-1] if has_finally else blocks[1:]
+            
+            if except_blocks:
+                for b in except_blocks:
+                    self.visit(b)
+            else:
+                raise
+        finally:
+            if ctx.FINALLY() is not None:
+                self.visit(blocks[-1])
+                
 del (PythonParser, PythonParserVisitor)
