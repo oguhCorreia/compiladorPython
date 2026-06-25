@@ -43,14 +43,16 @@ import_stmt   : IMPORT ID (AS ID)? | FROM ID IMPORT ID (AS ID)? ;
 func : DEF ID LPAREN (param (COMMA param)*)? RPAREN (ARROW expr)? COLON block ;
 class_def   : CLASS ID COLON block ;
 try_except  : TRY COLON block (EXCEPT ID? COLON block)* (FINALLY COLON block)? ;
-condicional : IF query COLON block (ELIF query COLON block)* (ELSE COLON block)? ;
+condicional : IF query COLON block (INDENT* ELIF query COLON block)* (INDENT* ELSE COLON block)? ;
 loop_while  : WHILE query COLON block ;
 loop_for    : FOR ID IN expr COLON block ;
 
 // CHAMADA DE FUNÇÃO
 func_call : ID LPAREN (expr (COMMA expr)*)? RPAREN ;
 
-expr : LPAREN expr RPAREN
+expr : MINUS expr
+     | PLUS expr
+     | LPAREN expr RPAREN
      | func_call
      | lista
      | dicionario

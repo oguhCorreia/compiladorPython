@@ -9,6 +9,12 @@ class ReturnException(Exception):
     def __init__(self, value):
         self.value = value
 
+class BreakException(Exception): 
+    pass
+
+class ContinueException(Exception):
+    pass
+
 class Compiler(PythonParserVisitor):
     _Parser = PythonParser
 
@@ -27,7 +33,7 @@ class Compiler(PythonParserVisitor):
         method = getattr(self, method_name, self.visitChildren)
         return method(ctx)
 
-    def visitCode(self, ctx:PythonParser.CodeContext):
+    def visitCode(self, ctx):
         print("\n=== INÍCIO DA EXECUÇÃO DO COMPILADOR ===")
         if ctx.children:
             for child in ctx.children:
@@ -36,12 +42,12 @@ class Compiler(PythonParserVisitor):
         print("=== FIM DA EXECUÇÃO ===\n")
         return None
 
-    def visitStat(self, ctx:PythonParser.StatContext):
+    def visitStat(self, ctx):
         if ctx.children:
             return self.visit(ctx.getChild(0))
         return None
 
-    def visitAssignment(self, ctx:PythonParser.AssignmentContext):
+    def visitAssignment(self, ctx):
         name = ctx.ID().getText()
         op = ctx.op_assignment().getText()
         right = self.visit(ctx.expr())
@@ -57,7 +63,7 @@ class Compiler(PythonParserVisitor):
         print(f"Atribuição: {name} {op} {right}")
         return self.vars[name]
 
-    def visitPrint_stmt(self, ctx: PythonParser.Print_stmtContext):
+    def visitPrint_stmt(self, ctx):
         results = []
         for child in ctx.children:
             rule = getattr(child, 'getRuleIndex', None)
@@ -70,7 +76,7 @@ class Compiler(PythonParserVisitor):
         print(f"> [PRINT]: {resultado}")
         return None
 
-    def visitInput_stmt(self, ctx:PythonParser.Input_stmtContext):
+    def visitInput_stmt(self, ctx):
         var_name = ctx.ID().getText()
         prompt = ctx.STRING().getText().strip('"\'') if ctx.STRING() else ""
         print(f"[LOG - INPUT] A aguardar entrada do utilizador para a variável '{var_name}'...")
@@ -83,19 +89,19 @@ class Compiler(PythonParserVisitor):
         print(f"[LOG - INPUT] Recebido: {value} (Tipo: {type(value).__name__})")
         return value
 
-    def visitFunc(self, ctx: PythonParser.FuncContext):
+    def visitFunc(self, ctx):
         name = ctx.ID().getText()
         params = [p.ID().getText() for p in ctx.param()]
         block = ctx.block()
         self.funcs[name] = (params, block)
         return None
 
-    def visitBlock(self, ctx:PythonParser.BlockContext):
+    def visitBlock(self, ctx):
         for stat in ctx.stat():
             self.visit(stat)
         return None
 
-    def visitFunc_call(self, ctx:PythonParser.Func_callContext):
+    def visitFunc_call(self, ctx):
         name = ctx.ID().getText()
 
         if name in ['len', 'type', 'range']:
@@ -139,23 +145,32 @@ class Compiler(PythonParserVisitor):
 
         return return_value
 
-    def visitLoop_while(self, ctx:PythonParser.Loop_whileContext):
+    def visitLoop_while(self, ctx):
         while self.visit(ctx.query()):
-            self.visit(ctx.block())
+            try:
+                self.visit(ctx.block())
+            except BreakException:
+                break
+            except ContinueException:
+                continue
         return None
 
-    def visitLoop_for(self, ctx:PythonParser.Loop_forContext):
+    def visitLoop_for(self, ctx):
         var_name = ctx.ID().getText()
         iterable = self.visit(ctx.expr())
 
         for item in iterable:
             self.vars[var_name] = item
-            # Mostra a atribuição implícita que acontece dentro do ciclo For
             print(f"Atribuição (For): {var_name} = {item}")
-            self.visit(ctx.block())
+            try:
+                self.visit(ctx.block())
+            except BreakException:
+                break
+            except ContinueException:
+                continue
         return None
 
-    def visitExpr(self, ctx:PythonParser.ExprContext):
+    def visitExpr(self, ctx):
         if ctx.TRUE(): return True
         if ctx.FALSE(): return False
         
@@ -204,13 +219,13 @@ class Compiler(PythonParserVisitor):
 
         return self.visitChildren(ctx)
 
-    def visitLista(self, ctx:PythonParser.ListaContext):
+    def visitLista(self, ctx):
         return [self.visit(expr) for expr in ctx.expr()]
 
-    def visitTupla(self, ctx:PythonParser.TuplaContext):
+    def visitTupla(self, ctx):
         return tuple(self.visit(expr) for expr in ctx.expr())
 
-    def visitDicionario(self, ctx:PythonParser.DicionarioContext):
+    def visitDicionario(self, ctx):
         d = {}
         exprs = ctx.expr()
         for i in range(0, len(exprs), 2):
@@ -219,11 +234,11 @@ class Compiler(PythonParserVisitor):
             d[k] = v
         return d
 
-    def visitConjunto(self, ctx:PythonParser.ConjuntoContext):
+    def visitConjunto(self, ctx):
         elementos = [self.visit(e) for e in ctx.expr()]
         return set(elementos)
 
-    def visitQuery(self, ctx: PythonParser.QueryContext):
+    def visitQuery(self, ctx):
         if ctx.TRUE(): return True
         if ctx.FALSE(): return False
 
@@ -246,7 +261,7 @@ class Compiler(PythonParserVisitor):
 
         raise RuntimeError(f"Condição não reconhecida: '{ctx.getText()}'")
 
-    def visitCondicional(self, ctx:PythonParser.CondicionalContext):
+    def visitCondicional(self, ctx):
         queries = ctx.query()
         blocks = ctx.block()
 
@@ -260,11 +275,11 @@ class Compiler(PythonParserVisitor):
 
         return None
 
-    def visitReturn_stmt(self, ctx: PythonParser.Return_stmtContext):
+    def visitReturn_stmt(self, ctx):
         value = self.visit(ctx.expr()) if ctx.expr() else None
         raise ReturnException(value)
 
-    def visitTry_except(self, ctx: PythonParser.Try_exceptContext):
+    def visitTry_except(self, ctx):
         blocks = ctx.block()
         try:
             self.visit(blocks[0])
@@ -281,4 +296,10 @@ class Compiler(PythonParserVisitor):
             if ctx.FINALLY() is not None:
                 self.visit(blocks[-1])
                 
+    def visitBreak_stmt(self, ctx):
+        raise BreakException()
+    
+    def visitContinue_stmt(self, ctx):
+        raise ContinueException()
+    
 del (PythonParser, PythonParserVisitor)
